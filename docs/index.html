@@ -1,0 +1,544 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fly Brain Explorer</title>
+<meta name="description" content="Explore spike propagation in a whole-brain model of the fruit fly, built from the FlyWire connectome.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f6f5f2;
+  --surface: #fcfcfb;
+  --surface-2: #f0efec;
+  --border: #e2e0da;
+  --text: #0b0b0b;
+  --text-2: #52514e;
+  --text-3: #7d7b75;
+  --brain: rgba(60, 58, 54, 0.10);
+  --c-central: #2a78d6;
+  --c-desc: #eb6834;
+  --c-motor: #1baf7a;
+  --c-sensory: #0b0b0b;
+  --c-other: #9a978f;
+  --cursor: #e34948;
+  --accent: #2a78d6;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface: #1a1a19;
+    --surface-2: #232321;
+    --border: #2f2f2c;
+    --text: #ffffff;
+    --text-2: #c3c2b7;
+    --text-3: #8d8c84;
+    --brain: rgba(235, 232, 222, 0.09);
+    --c-central: #3987e5;
+    --c-desc: #d95926;
+    --c-motor: #199e70;
+    --c-sensory: #ffffff;
+    --c-other: #77756e;
+    --cursor: #e66767;
+    --accent: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #121211;
+  --surface: #1a1a19;
+  --surface-2: #232321;
+  --border: #2f2f2c;
+  --text: #ffffff;
+  --text-2: #c3c2b7;
+  --text-3: #8d8c84;
+  --brain: rgba(235, 232, 222, 0.09);
+  --c-central: #3987e5;
+  --c-desc: #d95926;
+  --c-motor: #199e70;
+  --c-sensory: #ffffff;
+  --c-other: #77756e;
+  --cursor: #e66767;
+  --accent: #3987e5;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 1180px; margin: 0 auto; padding: 32px 16px 64px; }
+header h1 { font-size: 30px; line-height: 1.15; margin: 0 0 8px; letter-spacing: -0.02em; }
+header p { margin: 0; color: var(--text-2); max-width: 760px; }
+.mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 24px 0 16px; }
+.tabs { display: inline-flex; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
+.tabs button {
+  border: 0; background: transparent; color: var(--text-2); font: inherit; font-weight: 500;
+  padding: 7px 14px; border-radius: 8px; cursor: pointer;
+}
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+.spacer { flex: 1; }
+.theme-btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+}
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.stat .v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stat .l { color: var(--text-3); font-size: 13px; }
+
+.desc { color: var(--text-2); margin: 0 0 16px; max-width: 900px; }
+
+.grid { display: grid; grid-template-columns: 1.15fr 1fr; gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; min-width: 0; }
+.card h2 { font-size: 15px; margin: 0 0 2px; font-weight: 600; }
+.card .sub { color: var(--text-3); font-size: 13px; margin: 0 0 12px; }
+.canvas-box { position: relative; width: 100%; }
+canvas { display: block; width: 100%; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 13px; color: var(--text-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.legend i.ring { background: transparent !important; border: 2px solid var(--c-sensory); }
+
+.player { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.play {
+  width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--text); color: var(--surface); display: grid; place-items: center; flex: none;
+}
+.play svg { width: 14px; height: 14px; }
+input[type=range] { flex: 1; accent-color: var(--accent); min-width: 0; }
+.tlabel { font-variant-numeric: tabular-nums; color: var(--text-2); font-size: 13px; width: 78px; text-align: right; flex: none; }
+
+.tip {
+  position: fixed; pointer-events: none; z-index: 10; display: none;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px; font-size: 13px; line-height: 1.4;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15); max-width: 260px;
+}
+.tip b { font-weight: 600; }
+.tip .t3 { color: var(--text-3); }
+
+.table-card { margin-top: 16px; }
+.table-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: space-between; margin-bottom: 10px; }
+.search {
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+  font: inherit; font-size: 14px; padding: 7px 11px; border-radius: 8px; width: 260px; max-width: 100%;
+}
+.tbl-scroll { overflow-x: auto; max-height: 460px; overflow-y: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; color: var(--text-3); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border);
+     position: sticky; top: 0; background: var(--surface); cursor: pointer; white-space: nowrap; user-select: none; }
+th.num, td.num { text-align: right; font-variant-numeric: tabular-nums; }
+td { padding: 7px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+tr:hover td { background: var(--surface-2); }
+td .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; vertical-align: 1px; }
+td a { color: var(--accent); text-decoration: none; }
+td a:hover { text-decoration: underline; }
+
+footer { margin-top: 32px; color: var(--text-3); font-size: 13px; max-width: 900px; }
+footer a { color: var(--text-2); }
+footer p { margin: 0 0 8px; }
+
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  header h1 { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Fly Brain Explorer</h1>
+    <p>A whole-brain spiking model of the adult fruit fly, wired from the FlyWire connectome
+      (~139,000 neurons, ~5 million synapses). Pick an experiment: a few neurons are stimulated,
+      and you can watch the activity spread through the rest of the brain.</p>
+  </header>
+
+  <div class="controls">
+    <div class="tabs" id="tabs" role="tablist"></div>
+    <div class="spacer"></div>
+    <button class="theme-btn" id="themeBtn" type="button">Theme: auto</button>
+  </div>
+
+  <p class="desc" id="desc"></p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Brain map</h2>
+      <p class="sub">Front view. Grey dots are a sample of all neurons; coloured dots are neurons that fired.</p>
+      <div class="canvas-box"><canvas id="map"></canvas></div>
+      <div class="player">
+        <button class="play" id="play" type="button" aria-label="Play"></button>
+        <input type="range" id="scrub" min="0" max="1000" step="1" value="1000" aria-label="Time">
+        <span class="tlabel mono" id="tlabel"></span>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card">
+      <h2>Spike raster</h2>
+      <p class="sub">Each row is one active neuron, sorted by when it first fired. Each dot is one spike.</p>
+      <div class="canvas-box"><canvas id="raster"></canvas></div>
+      <div class="legend" id="legend2"></div>
+    </div>
+  </div>
+
+  <div class="card table-card">
+    <div class="table-head">
+      <div>
+        <h2>Active neurons</h2>
+        <p class="sub" style="margin:0">Click a column to sort. IDs open the neuron in FlyWire Codex.</p>
+      </div>
+      <input class="search" id="search" type="search" placeholder="Filter by type, class, ID…">
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th data-k="grp">Group</th>
+          <th data-k="type">Cell type</th>
+          <th data-k="cls">Class</th>
+          <th data-k="side">Side</th>
+          <th data-k="nt">Transmitter</th>
+          <th data-k="first" class="num">First spike (ms)</th>
+          <th data-k="rate" class="num">Rate (Hz)</th>
+          <th data-k="id">FlyWire ID</th>
+        </tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>
+    <p>Model: leaky integrate-and-fire neurons with alpha synapses (Shiu et al., <a href="https://www.biorxiv.org/content/10.1101/2023.05.02.539144v1">bioRxiv 2023</a>),
+      run with the PyTorch backend of <a href="https://github.com/eonsystemspbc/fly-brain">eonsystemspbc/fly-brain</a>.
+      Connectome and cell annotations: <a href="https://flywire.ai/">FlyWire</a> v783
+      (<a href="https://github.com/flyconnectome/flywire_annotations">annotations</a>).</p>
+    <p id="runinfo"></p>
+    <p>Results are precomputed. Simulating 1 s of brain activity takes about 5 minutes on a laptop CPU, so this page plays back saved runs rather than simulating live.</p>
+  </footer>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+const DESCRIPTIONS = {
+  sugar: 'Sugar-sensing taste neurons (gustatory receptor neurons) are driven at 200 Hz, like the fly tasting sugar. In the real fly this triggers proboscis extension, the feeding reflex. Watch for motor neurons switching on.',
+  p9: 'The P9 descending neurons on each side are driven at 100 Hz. In flies, activating P9 makes the animal walk forward.',
+};
+const GROUPS = [
+  { key: 'sensory', label: 'Stimulated', css: '--c-sensory' },
+  { key: 'central', label: 'Central brain', css: '--c-central' },
+  { key: 'desc', label: 'Descending (brain → body)', css: '--c-desc' },
+  { key: 'motor', label: 'Motor neurons', css: '--c-motor' },
+  { key: 'other', label: 'Other (sensory, ascending, …)', css: '--c-other' },
+];
+const GROUP_IDX = Object.fromEntries(GROUPS.map((g, i) => [g.key, i]));
+
+function groupOf(n) {
+  if (n.stim) return 'sensory';
+  if (n.sup === 'central' || n.sup === 'optic') return 'central';
+  if (n.sup === 'descending') return 'desc';
+  if (n.sup === 'motor' || n.cls === 'brain_motor_neuron') return 'motor';
+  return 'other';
+}
+
+const $ = (id) => document.getElementById(id);
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt = (n) => n.toLocaleString('en-US');
+
+let brain = null, exps = [], cur = null, tNow = 1000, playing = false, colors = {};
+const cache = {};
+
+function readColors() {
+  colors = { brain: css('--brain'), cursor: css('--cursor'), text3: css('--text-3'), border: css('--border') };
+  GROUPS.forEach(g => colors[g.key] = css(g.css));
+}
+
+function setupCanvas(c, aspect) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.parentElement.clientWidth;
+  const h = Math.round(w * aspect);
+  c.style.height = h + 'px';
+  c.width = Math.round(w * dpr); c.height = Math.round(h * dpr);
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, w, h };
+}
+
+// ---------- brain map ----------
+let mapGeom = null;
+function mapProject() {
+  const [x0, y0, x1, y1] = brain.bounds;
+  const c = $('map');
+  const w = c.parentElement.clientWidth;
+  const aspect = (y1 - y0) / (x1 - x0);
+  const h = Math.round(w * aspect);
+  const pad = 8;
+  const s = Math.min((w - 2 * pad) / (x1 - x0), (h - 2 * pad) / (y1 - y0));
+  return { aspect, s, ox: pad - x0 * s + ((w - 2 * pad) - (x1 - x0) * s) / 2, oy: pad - y0 * s };
+}
+
+function drawMap() {
+  if (!cur) return;
+  const p = mapProject();
+  const { ctx, w, h } = setupCanvas($('map'), p.aspect);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = colors.brain;
+  const pts = brain.points;
+  for (let i = 0; i < pts.length; i += 2) {
+    ctx.fillRect(pts[i] * p.s + p.ox - 0.75, pts[i + 1] * p.s + p.oy - 0.75, 1.5, 1.5);
+  }
+  // activity: neurons with a spike in the last WINDOW ms glow; earlier activity stays faint
+  const WINDOW = 15;
+  const recent = new Float32Array(cur.neurons.length).fill(-1);
+  for (const [ni, t] of cur.spikeList) {
+    if (t > tNow) break;
+    recent[ni] = t;
+  }
+  const order = cur.neurons.map((n, i) => i).sort((a, b) => recent[a] - recent[b]);
+  mapGeom = [];
+  for (const i of order) {
+    const n = cur.neurons[i];
+    if (n.x == null || recent[i] < 0) continue;
+    const x = n.x * p.s + p.ox, y = n.y * p.s + p.oy;
+    const age = tNow - recent[i];
+    const hot = age <= WINDOW;
+    const col = colors[n.grp];
+    mapGeom.push({ x, y, i });
+    ctx.globalAlpha = hot ? 1 : 0.35;
+    ctx.beginPath();
+    ctx.arc(x, y, hot ? 4.5 : 3, 0, Math.PI * 2);
+    if (n.grp === 'sensory') {
+      ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
+    } else {
+      ctx.fillStyle = col; ctx.fill();
+      ctx.lineWidth = 1; ctx.strokeStyle = css('--surface'); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// ---------- raster ----------
+let rasterGeom = null;
+function drawRaster() {
+  if (!cur) return;
+  const { ctx, w, h } = setupCanvas($('raster'), window.innerWidth > 860 ? 0.82 : 1.05);
+  const L = 40, R = 8, T = 6, B = 26;
+  const pw = w - L - R, ph = h - T - B;
+  const N = cur.neurons.length, tMax = cur.t_run_ms;
+  const rowH = ph / N;
+  rasterGeom = { L, T, pw, ph, rowH, N, tMax };
+  ctx.clearRect(0, 0, w, h);
+  // axes
+  ctx.strokeStyle = colors.border; ctx.lineWidth = 1;
+  ctx.fillStyle = colors.text3; ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  for (let t = 0; t <= tMax; t += tMax / 5) {
+    const x = L + (t / tMax) * pw;
+    ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + ph); ctx.stroke();
+    ctx.textAlign = t === 0 ? 'left' : t >= tMax ? 'right' : 'center';
+    ctx.fillText(t + ' ms', x, h - 8);
+  }
+  ctx.save(); ctx.translate(12, T + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText(fmt(N) + ' neurons', 0, 0); ctx.restore();
+  // spikes
+  const dotH = Math.max(1, Math.min(3, rowH));
+  for (const [ni, t] of cur.spikeList) {
+    const n = cur.neurons[ni];
+    ctx.fillStyle = colors[n.grp];
+    ctx.globalAlpha = t <= tNow ? 0.9 : 0.15;
+    ctx.fillRect(L + (t / tMax) * pw - 0.75, T + ni * rowH + (rowH - dotH) / 2, 1.5, dotH);
+  }
+  ctx.globalAlpha = 1;
+  // cursor
+  const cx = L + (tNow / tMax) * pw;
+  ctx.strokeStyle = colors.cursor; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(cx, T); ctx.lineTo(cx, T + ph); ctx.stroke();
+}
+
+// ---------- tooltip ----------
+function neuronTip(n) {
+  const g = GROUPS[GROUP_IDX[n.grp]];
+  return `<b>${n.type || 'Unnamed'}</b> <span class="t3">${n.side || ''}</span><br>` +
+    `<span class="t3">${g.label}${n.cls ? ' · ' + n.cls : ''}</span><br>` +
+    `First spike ${n.first} ms · ${n.rate} Hz<br><span class="t3 mono">${n.id}</span>`;
+}
+function showTip(html, e) {
+  const t = $('tip');
+  t.innerHTML = html; t.style.display = 'block';
+  const x = Math.min(e.clientX + 14, window.innerWidth - t.offsetWidth - 8);
+  const y = Math.min(e.clientY + 14, window.innerHeight - t.offsetHeight - 8);
+  t.style.left = x + 'px'; t.style.top = y + 'px';
+}
+const hideTip = () => { $('tip').style.display = 'none'; };
+
+$('map').addEventListener('mousemove', (e) => {
+  if (!mapGeom) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  let best = null, bd = 100;
+  for (const g of mapGeom) {
+    const d = (g.x - mx) ** 2 + (g.y - my) ** 2;
+    if (d < bd) { bd = d; best = g; }
+  }
+  best ? showTip(neuronTip(cur.neurons[best.i]), e) : hideTip();
+});
+$('map').addEventListener('mouseleave', hideTip);
+
+$('raster').addEventListener('mousemove', (e) => {
+  if (!rasterGeom) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const my = e.clientY - r.top - rasterGeom.T, mx = e.clientX - r.left - rasterGeom.L;
+  if (my < 0 || my > rasterGeom.ph || mx < 0 || mx > rasterGeom.pw) return hideTip();
+  const ni = Math.min(rasterGeom.N - 1, Math.floor(my / rasterGeom.rowH));
+  const t = Math.round((mx / rasterGeom.pw) * rasterGeom.tMax);
+  showTip(neuronTip(cur.neurons[ni]) + `<br><span class="t3">Cursor: ${t} ms</span>`, e);
+});
+$('raster').addEventListener('mouseleave', hideTip);
+$('raster').addEventListener('click', (e) => {
+  const r = e.currentTarget.getBoundingClientRect();
+  const mx = e.clientX - r.left - rasterGeom.L;
+  setTime(Math.max(0, Math.min(rasterGeom.tMax, (mx / rasterGeom.pw) * rasterGeom.tMax)));
+});
+
+// ---------- playback ----------
+const PLAY_SVG = '<svg viewBox="0 0 14 14"><path d="M3 1.5v11l9-5.5z" fill="currentColor"/></svg>';
+const PAUSE_SVG = '<svg viewBox="0 0 14 14"><path d="M3 1.5h3v11H3zM8 1.5h3v11H8z" fill="currentColor"/></svg>';
+function setTime(t) {
+  tNow = t;
+  $('scrub').value = Math.round(t);
+  $('tlabel').textContent = Math.round(t) + ' ms';
+  drawMap(); drawRaster();
+}
+let last = 0;
+const SPEED = 0.05; // simulated ms per real ms: 1 s of brain time plays in 20 s
+function tick(ts) {
+  if (!playing) return;
+  const dt = last ? ts - last : 0; last = ts;
+  let t = tNow + dt * SPEED;
+  if (t >= cur.t_run_ms) { t = cur.t_run_ms; setPlaying(false); }
+  setTime(t);
+  if (playing) requestAnimationFrame(tick);
+}
+function setPlaying(p) {
+  playing = p; last = 0;
+  $('play').innerHTML = p ? PAUSE_SVG : PLAY_SVG;
+  $('play').setAttribute('aria-label', p ? 'Pause' : 'Play');
+  if (p) {
+    if (tNow >= cur.t_run_ms) tNow = 0;
+    requestAnimationFrame(tick);
+  }
+}
+$('play').addEventListener('click', () => setPlaying(!playing));
+$('scrub').addEventListener('input', (e) => { setPlaying(false); setTime(+e.target.value); });
+
+// ---------- table ----------
+let sortKey = 'first', sortDir = 1;
+function renderTable() {
+  const q = $('search').value.trim().toLowerCase();
+  let rows = cur.neurons.filter(n => !q ||
+    [n.type, n.cls, n.sup, n.id, n.side, n.nt, GROUPS[GROUP_IDX[n.grp]].label].join(' ').toLowerCase().includes(q));
+  rows.sort((a, b) => {
+    let va = sortKey === 'grp' ? GROUP_IDX[a.grp] : a[sortKey];
+    let vb = sortKey === 'grp' ? GROUP_IDX[b.grp] : b[sortKey];
+    if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+  $('tbody').innerHTML = rows.map(n => {
+    const g = GROUPS[GROUP_IDX[n.grp]];
+    return `<tr><td><span class="dot" style="background:var(${g.css})"></span>${g.label}</td>` +
+      `<td>${n.type || '—'}</td><td>${n.cls || n.sup || '—'}</td><td>${n.side || '—'}</td><td>${n.nt || '—'}</td>` +
+      `<td class="num">${n.first}</td><td class="num">${n.rate}</td>` +
+      `<td><a class="mono" target="_blank" rel="noopener" href="https://codex.flywire.ai/app/cell_details?root_id=${n.id}&data_version=783">${n.id}</a></td></tr>`;
+  }).join('');
+}
+document.querySelectorAll('th').forEach(th => th.addEventListener('click', () => {
+  const k = th.dataset.k;
+  sortDir = sortKey === k ? -sortDir : (k === 'rate' ? -1 : 1);
+  sortKey = k; renderTable();
+}));
+$('search').addEventListener('input', renderTable);
+
+// ---------- experiment switching ----------
+function renderLegend() {
+  const present = new Set(cur.neurons.map(n => n.grp));
+  const html = GROUPS.filter(g => present.has(g.key)).map(g => {
+    const count = cur.neurons.filter(n => n.grp === g.key).length;
+    return `<span><i class="${g.key === 'sensory' ? 'ring' : ''}" style="background:var(${g.css})"></i>${g.label} (${count})</span>`;
+  }).join('');
+  $('legend').innerHTML = html; $('legend2').innerHTML = html;
+}
+
+async function loadExp(key) {
+  if (!cache[key]) {
+    const d = await (await fetch(`data/${key}.json`)).json();
+    d.neurons.forEach(n => n.grp = groupOf(n));
+    d.spikeList = [];
+    for (let i = 0; i < d.spikes.length; i += 2) d.spikeList.push([d.spikes[i], d.spikes[i + 1] / 10]);
+    d.spikeList.sort((a, b) => a[1] - b[1]);
+    cache[key] = d;
+  }
+  cur = cache[key];
+  document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.key === key));
+  $('desc').textContent = DESCRIPTIONS[key] || cur.name;
+  const motor = cur.neurons.filter(n => n.grp === 'motor').length;
+  const firstDesc = cur.neurons.filter(n => n.grp === 'desc').reduce((m, n) => Math.min(m, n.first), Infinity);
+  $('stats').innerHTML = [
+    [fmt(cur.neurons.filter(n => n.stim).length), 'neurons stimulated'],
+    [fmt(cur.neurons.length), 'neurons fired'],
+    [fmt(cur.n_spikes), 'spikes in ' + (cur.t_run_ms / 1000) + ' s'],
+    [isFinite(firstDesc) ? firstDesc + ' ms' : '—', 'until first brain → body signal'],
+  ].map(([v, l]) => `<div class="stat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join('');
+  $('runinfo').textContent = `This run: ${cur.name}, ${cur.t_run_ms / 1000} s simulated, ${cur.backend}. ${motor} motor neurons became active.`;
+  renderLegend();
+  sortKey = 'first'; sortDir = 1;
+  renderTable();
+  setPlaying(false);
+  setTime(cur.t_run_ms);
+}
+
+// ---------- theme ----------
+const THEMES = ['auto', 'light', 'dark'];
+let theme = 'auto';
+try { theme = localStorage.getItem('flybrain-theme') || 'auto'; } catch (e) {}
+function applyTheme() {
+  if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', theme);
+  $('themeBtn').textContent = 'Theme: ' + theme;
+  readColors();
+  if (cur) { drawMap(); drawRaster(); }
+}
+$('themeBtn').addEventListener('click', () => {
+  theme = THEMES[(THEMES.indexOf(theme) + 1) % 3];
+  try { localStorage.setItem('flybrain-theme', theme); } catch (e) {}
+  applyTheme();
+});
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+window.addEventListener('resize', () => { if (cur) { drawMap(); drawRaster(); } });
+
+(async function init() {
+  applyTheme();
+  $('play').innerHTML = PLAY_SVG;
+  [brain, exps] = await Promise.all([
+    fetch('data/brain.json').then(r => r.json()),
+    fetch('data/experiments.json').then(r => r.json()),
+  ]);
+  $('tabs').innerHTML = exps.map(e =>
+    `<button role="tab" type="button" data-key="${e.key}">${e.name}</button>`).join('');
+  document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => loadExp(b.dataset.key)));
+  await loadExp(exps[0].key);
+})();
+</script>
+</body>
+</html>

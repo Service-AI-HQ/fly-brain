@@ -9,6 +9,29 @@ Based on the paper
 entire adult Drosophila brain reveals insights into sensorimotor processing*](https://www.biorxiv.org/content/10.1101/2023.05.02.539144v1)
 (Shiu et al.).
 
+## Web demo
+
+**Live:** https://service-ai-hq.github.io/fly-brain/
+
+A static page in [docs/](docs/) plays back precomputed runs: a brain map
+(front view, FlyWire neuron positions), a spike raster sorted by first-spike
+time, and a sortable table of every active neuron with its FlyWire cell type.
+
+To add or refresh runs (works on CPU, including Apple Silicon Macs):
+
+```bash
+python main.py --pytorch --experiment sugar --t_run 1 --n_run 1 --run-label mac_sugar
+python main.py --pytorch --experiment p9 --t_run 1 --n_run 1 --run-label mac_p9
+python web/export_demo_data.py --run-label mac_sugar mac_p9 \
+    --annotations Supplemental_file1_neuron_annotations.tsv
+```
+
+Use a separate `--run-label` per experiment: spike files are named by backend,
+duration and trial count only, so two experiments under one label overwrite each other.
+The annotations file comes from
+[flyconnectome/flywire_annotations](https://github.com/flyconnectome/flywire_annotations/tree/main/supplemental_files).
+On an M3 Pro CPU, 1 s of simulated time takes about 5.5 minutes.
+
 ## Usage
 
 With this computational model, one can manipulate the neural activity of a set of _Drosophila_ neurons.

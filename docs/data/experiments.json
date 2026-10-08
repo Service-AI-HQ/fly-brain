@@ -1,0 +1,20 @@
+[
+ {
+  "key": "sugar",
+  "name": "Sugar GRNs (200 Hz)",
+  "stim_rate": 200.0,
+  "t_run_ms": 1000.0,
+  "n_active": 398,
+  "n_spikes": 17400,
+  "n_stim": 21
+ },
+ {
+  "key": "p9",
+  "name": "P9s forward walking (100 Hz)",
+  "stim_rate": 100.0,
+  "t_run_ms": 1000.0,
+  "n_active": 138,
+  "n_spikes": 833,
+  "n_stim": 2
+ }
+]
