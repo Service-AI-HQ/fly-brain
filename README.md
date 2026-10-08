@@ -1,5 +1,7 @@
 # Emulation of the *Drosophila Fly* Brain
 
+> **Live web demo:** https://service-ai-hq.github.io/fly-brain/ · website source and how to edit it: [docs/README.md](docs/README.md)
+
 Whole-brain leaky integrate-and-fire model of the adult fruit fly, built from the
 [FlyWire](https://flywire.ai/) connectome (~138k neurons, ~5M synapses).
 Activate and silence arbitrary neurons; observe downstream spike propagation.
@@ -17,7 +19,7 @@ A static page in [docs/](docs/) plays back precomputed runs: a brain map
 (front view, FlyWire neuron positions), a spike raster sorted by first-spike
 time, and a sortable table of every active neuron with its FlyWire cell type.
 
-To add or refresh runs (works on CPU, including Apple Silicon Macs):
+Full guide: [docs/README.md](docs/README.md). To add or refresh runs (works on CPU, including Apple Silicon Macs):
 
 ```bash
 python main.py --pytorch --experiment sugar --t_run 1 --n_run 1 --run-label mac_sugar
